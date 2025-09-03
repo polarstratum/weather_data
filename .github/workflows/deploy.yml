@@ -5,12 +5,17 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write # Додано для дозволу на запис в репозиторій
+  pages: write    # Додано для дозволу на розгортання GitHub Pages
+  id-token: write # Додано для взаємодії з OIDC-провайдером, необхідне для нових функцій
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Inject API Key
         run: |

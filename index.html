@@ -4,151 +4,128 @@
     <meta charset="UTF-8">
     <title>Щоденник рибалки</title>
     <style>
+        /* Додамо базові стилі для Notion */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .container { padding: 20px; }
+        input, button { margin-right: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            color: #37352f;
-            line-height: 1.5;
-            background-color: #ffffff;
-            padding: 0;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-        .container {
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
-            max-width: 1200px;
-            padding: 20px;
-        }
-        .city-column {
-            width: 30%;
-            padding: 20px;
-            border: 1px solid #e7e7e5;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            background-color: #f7f6f3;
-            margin: 0 10px;
-        }
-        h2, h3 {
-            font-size: 1.2em;
-            font-weight: 600;
-            margin-top: 0;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #e7e7e5;
-            padding-bottom: 5px;
-        }
-        input, button {
-            width: calc(100% - 24px);
-            padding: 8px 12px;
-            border: 1px solid #e7e7e5;
-            border-radius: 4px;
-            font-family: inherit;
-            font-size: 14px;
-            box-sizing: border-box;
-            margin-bottom: 10px;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-            border-color: #007bff;
-            transition: background-color 0.2s ease-in-out;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #weather-info p, #astro-info p, #pressure-advice p, #wind-info p {
-            margin: 5px 0;
-        }
-        .chart-container {
-            margin-top: 20px;
-        }
-        #windDirectionIcon {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #4a4a4a;
-            transition: transform 0.5s ease-in-out;
-        }
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #2f3437;
-                color: #ddd;
-            }
-            .city-column {
-                background-color: #3a3a3a;
-                border-color: #555;
-            }
-            input, button {
-                background-color: #454545;
-                border-color: #555;
-                color: #ddd;
-            }
-            input:focus {
-                border-color: #007bff;
-            }
-            button {
-                background-color: #007bff;
-            }
-            button:hover {
-                background-color: #0056b3;
-            }
-            h2, h3 {
-                color: #f0f0f0;
-                border-bottom-color: #454545;
-            }
-            #windDirectionIcon {
-                color: #c8c8c8;
-            }
-        }
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #37352f;
+    line-height: 1.5;
+    background-color: #ffffff;
+    padding: 0;
+    margin: 0;
+}
+.container {
+    padding: 20px;
+}
+h2, h3 {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #e7e7e5;
+    padding-bottom: 5px;
+}
+input, button {
+    padding: 8px 12px;
+    border: 1px solid #e7e7e5;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+input:focus {
+    outline: none;
+    border-color: #007bff;
+}
+button {
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    border-color: #007bff;
+    transition: background-color 0.2s ease-in-out;
+}
+button:hover {
+    background-color: #0056b3;
+}
+#weather-info p, #astro-info p, #pressure-advice p, #wind-info p {
+    margin: 5px 0;
+}
+.chart-container {
+    margin-top: 20px;
+    padding: 10px;
+    background: #f7f6f3;
+    border-radius: 8px;
+}
+#windDirectionIcon {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #4a4a4a; /* Темний колір стрілки */
+    transition: transform 0.5s ease-in-out;
+}
+@media (prefers-color-scheme: dark) {
+    #windDirectionIcon {
+        color: #c8c8c8;
+    }
+}
+/* Стилі для темної теми Notion */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #2f3437;
+        color: #ddd;
+    }
+    input, button {
+        background-color: #454545;
+        border-color: #555;
+        color: #ddd;
+    }
+    input:focus {
+        border-color: #007bff;
+    }
+    button {
+        background-color: #007bff;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+    h2, h3 {
+        color: #f0f0f0;
+        border-bottom-color: #454545;
+    }
+    .chart-container {
+        background: #3a3a3a;
+    }
+}
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
-        <div class="city-column">
-            <h2>Прогноз 1</h2>
-            <input type="text" id="cityInput1" placeholder="Введіть місто" value="Kyiv">
-            <button id="searchButton1">Знайти</button>
-            <div id="weather-info-1"></div>
-            <div id="pressure-advice-1"></div>
-            <div id="wind-info-1"></div>
-            <div id="astro-info-1"></div>
-            <div id="success-index-1"></div>
-            <div class="chart-container"><canvas id="tempChart1"></canvas></div>
-            <div class="chart-container"><canvas id="pressureChart1"></canvas></div>
+        <h2>Погода та астро-прогноз</h2>
+        <input type="text" id="cityInput" placeholder="Введіть місто" value="Kyiv">
+        <button id="searchButton">Знайти</button>
+        <div id="weather-info"></div>
+        <div id="wind-info"><p>
+    Швидкість вітру: <span id="windSpeed"></span> м/с
+    <span id="windDirectionIcon" style="display: inline-block;">
+        ↑
+    </span></p></div>
+        <div id="pressure-advice"></div>
+        <div id="astro-info"></div>
+        <div id="success-index"></div>
+        <div class="chart-container">
+            <h3>Прогноз температури на 5 днів</h3>
+            <canvas id="tempChart"></canvas>
         </div>
-        
-        <div class="city-column">
-            <h2>Прогноз 2</h2>
-            <input type="text" id="cityInput2" placeholder="Введіть місто" value="Lviv">
-            <button id="searchButton2">Знайти</button>
-            <div id="weather-info-2"></div>
-            <div id="pressure-advice-2"></div>
-            <div id="wind-info-2"></div>
-            <div id="astro-info-2"></div>
-            <div id="success-index-2"></div>
-            <div class="chart-container"><canvas id="tempChart2"></canvas></div>
-            <div class="chart-container"><canvas id="pressureChart2"></canvas></div>
-        </div>
-
-        <div class="city-column">
-            <h2>Прогноз 3</h2>
-            <input type="text" id="cityInput3" placeholder="Введіть місто" value="Odesa">
-            <button id="searchButton3">Знайти</button>
-            <div id="weather-info-3"></div>
-            <div id="pressure-advice-3"></div>
-            <div id="wind-info-3"></div>
-            <div id="astro-info-3"></div>
-            <div id="success-index-3"></div>
-            <div class="chart-container"><canvas id="tempChart3"></canvas></div>
-            <div class="chart-container"><canvas id="pressureChart3"></canvas></div>
+        <div class="chart-container">
+            <h3>Прогноз тиску на 5 днів</h3>
+            <canvas id="pressureChart"></canvas>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
+    <script src="config.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

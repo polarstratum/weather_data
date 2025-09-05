@@ -96,6 +96,7 @@
             color: var(--toggle-text);
             border: 1px solid var(--border-color);
             border-radius: 4px;
+            margin-top: 4px;
             margin-left: 8px;
         }
         .toggle-button.active {
@@ -214,13 +215,13 @@
         <input type="text" id="location-input" placeholder="Enter city or location">
         <button id="search-btn">Search</button>
         <button id="unit-toggle" class="toggle-button">°C / °F</button>
-        <button id="add-favorite-btn" class="toggle-button">Add Favorite</button>
     </div>
     <div class="section" id="favorites">
         <h2>Favorite Locations</h2>
         <select id="favorite-locations" onchange="if(this.value) fetchData(null, this.value)">
             <option value="">Select a favorite location</option>
         </select>
+        <button id="add-favorite-btn" class="toggle-button">Add Favorite</button>
         <button id="remove-favorite-btn" class="toggle-button">Remove Selected</button>
     </div>
     <div class="section" id="current-weather">

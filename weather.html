@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fishing Weather Widget</title>
+    <style>
+        /* Styles adapted for Notion-like design with light and dark theme support */
+        :root {
+            --bg-color: #f6f6f6;
+            --text-color: #37352f;
+            --border-color: #e0e0e0;
+            --button-bg: #2eaadc;
+            --button-hover-bg: #2694c4;
+            --toggle-bg: #f0f0f0;
+            --toggle-text: #37352f;
+            --shadow-color: rgba(0,0,0,0.1);
+            --success-color: #4caf50;
+            --poor-color: #f44336;
+            --fair-color: #ff9800;
+            --good-color: #2196f3;
+            --none-color: #f44336;
+            --error-color: #f44336;
+            --warning-color: #ff9800;
+        }
+
+        /* Dark theme */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #2f2f2f;
+                --text-color: #e0e0e0;
+                --border-color: #444;
+                --button-bg: #2eaadc;
+                --button-hover-bg: #2694c4;
+                --toggle-bg: #444;
+                --toggle-text: #e0e0e0;
+                --shadow-color: rgba(255,255,255,0.1);
+                --success-color: #66bb6a;
+                --poor-color: #ef5350;
+                --fair-color: #ffa726;
+                --good-color: #42a5f5;
+                --none-color: #ef5350;
+                --error-color: #ef5350;
+                --warning-color: #ffa726;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px var(--shadow-color);
+        }
+        h2 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 4px;
+        }
+        .section {
+            margin-bottom: 16px;
+        }
+        .input-group {
+            display: flex;
+            margin-bottom: 16px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px 0 0 4px;
+            font-size: 14px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        button {
+            padding: 8px 12px;
+            background-color: var(--button-bg);
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: var(--button-hover-bg);
+        }
+        .toggle-button {
+            background-color: var(--toggle-bg);
+            color: var(--toggle-text);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+        .toggle-button.active {
+            background-color: var(--button-bg);
+            color: white;
+        }
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .wind-arrow {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-top: 2px solid var(--text-color);
+            border-right: 2px solid var(--text-color);
+            transform: rotate(45deg);
+            animation: wind-pulse 1s infinite alternate;
+        }
+        @keyframes wind-pulse {
+            0% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        #chart-container {
+            height: 200px;
+        }
+        .success-level {
+            font-weight: bold;
+            color: var(--success-color);
+        }
+        .poor { color: var(--poor-color); }
+        .fair { color: var(--fair-color); }
+        .excellent { color: var(--success-color); }
+        .good { color: var(--good-color); }
+        .none { color: var(--none-color); }
+        .error-message {
+            color: var(--error-color);
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+            text-align: center;
+        }
+        .warning-message {
+            color: var(--warning-color);
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+            text-align: center;
+        }
+        #favorites {
+            margin-bottom: 16px;
+        }
+        #favorite-locations {
+            width: calc(100% - 80px);
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        #remove-favorite-btn {
+            margin-left: 8px;
+        }
+        .fishing-tips {
+            font-size: 14px;
+            margin-top: 8px;
+            padding-left: 16px;
+            list-style-type: disc;
+            opacity: 0;
+            animation: fadeIn 0.5s ease-in forwards;
+        }
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        details {
+            margin-top: 8px;
+        }
+        summary {
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px;
+            background-color: var(--toggle-bg);
+            border-radius: 4px;
+            color: var(--toggle-text);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 6px;
+            text-align: left;
+        }
+        th {
+            background-color: var(--toggle-bg);
+            color: var(--toggle-text);
+        }
+        td {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="error-message" id="error-message"></div>
+    <div class="warning-message" id="warning-message"></div>
+    <div class="input-group">
+        <input type="text" id="location-input" placeholder="Enter city or location">
+        <button id="search-btn">Search</button>
+        <button id="unit-toggle" class="toggle-button">°C / °F</button>
+        <button id="add-favorite-btn" class="toggle-button">Add Favorite</button>
+    </div>
+    <div class="section" id="favorites">
+        <h2>Favorite Locations</h2>
+        <select id="favorite-locations" onchange="if(this.value) fetchData(null, this.value)">
+            <option value="">Select a favorite location</option>
+        </select>
+        <button id="remove-favorite-btn" class="toggle-button">Remove Selected</button>
+    </div>
+    <div class="section" id="current-weather">
+        <h2 id="weather-title">Current Weather</h2>
+        <div class="data-row"><span>Temperature:</span><span id="temp"></span></div>
+        <div class="data-row"><span>Description:</span><span id="description"></span></div>
+        <div class="data-row"><span>Pressure:</span><span id="pressure"></span></div>
+        <div class="data-row"><span>Wind Speed:</span><span id="wind-speed"><span class="wind-arrow" id="wind-arrow"></span></span></div>
+    </div>
+    <div class="section" id="astronomical-data">
+        <h2>Astronomical Data</h2>
+        <div class="data-row"><span>Sunrise:</span><span id="sunrise"></span></div>
+        <div class="data-row"><span>Sunset:</span><span id="sunset"></span></div>
+        <div class="data-row"><span>Moon Phase:</span><span id="moon-phase"></span></div>
+    </div>
+    <div class="section" id="fishing-success">
+        <h2>Fishing Success Forecast</h2>
+        <div class="data-row"><span>Success Level:</span><span id="success-level" class="success-level"></span></div>
+        <div id="success-description"></div>
+        <ul id="fishing-tips" class="fishing-tips"></ul>
+    </div>
+    <div class="section" id="forecast-chart">
+        <h2>5-Day Forecast</h2>
+        <canvas id="weather-chart"></canvas>
+        <details>
+            <summary>View Detailed 5-Day Fishing Forecast</summary>
+            <table id="forecast-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Temperature</th>
+                        <th>Description</th>
+                        <th>Pressure</th>
+                        <th>Wind Speed</th>
+                        <th>Success Level</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </details>
+    </div>
+
+    <script>
+        const API_KEY = 'f767bc563aecb004f76857047569950a'; // Provided OpenWeatherMap API key
+        let units = 'metric'; // Default to Celsius and m/s
+        let chart;
+
+        // Load saved city and favorites from localStorage
+        const savedLocation = localStorage.getItem('lastCity') || 'New York';
+        let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+        document.getElementById('location-input').value = savedLocation;
+
+        // Add event listeners
+        document.getElementById('search-btn').addEventListener('click', fetchData);
+        document.getElementById('unit-toggle').addEventListener('click', toggleUnits);
+        document.getElementById('location-input').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                fetchData(event);
+            }
+        });
+        document.getElementById('add-favorite-btn').addEventListener('click', () => {
+            const location = document.getElementById('location-input').value.trim();
+            const errorElement = document.getElementById('error-message');
+            if (location && !favorites.includes(location) && favorites.length < 10) {
+                favorites.push(location);
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+                updateFavoritesDropdown();
+                fetchData(null, location);
+                errorElement.style.display = 'none';
+            } else if (favorites.includes(location)) {
+                errorElement.textContent = `"${location}" is already in favorites.`;
+                errorElement.style.display = 'block';
+            } else if (favorites.length >= 10) {
+                errorElement.textContent = 'Maximum 10 favorites allowed.';
+                errorElement.style.display = 'block';
+            }
+        });
+        document.getElementById('remove-favorite-btn').addEventListener('click', () => {
+            const selected = document.getElementById('favorite-locations').value;
+            if (selected) {
+                favorites = favorites.filter(fav => fav !== selected);
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+                updateFavoritesDropdown();
+                if (selected === document.getElementById('location-input').value) {
+                    fetchData(null, savedLocation);
+                }
+            }
+        });
+
+        function updateFavoritesDropdown() {
+            const select = document.getElementById('favorite-locations');
+            select.innerHTML = '<option value="">Select a favorite location</option>';
+            favorites.forEach(fav => {
+                const option = document.createElement('option');
+                option.value = fav;
+                option.textContent = fav;
+                select.appendChild(option);
+            });
+        }
+
+        function toggleUnits() {
+            units = units === 'metric' ? 'imperial' : 'metric';
+            document.getElementById('unit-toggle').textContent = units === 'metric' ? '°C / °F' : '°F / °C';
+            const location = document.getElementById('location-input').value || savedLocation;
+            fetchData({ target: null }, location);
+        }
+
+        async function fetchData(event, overrideLocation = null) {
+            const location = overrideLocation || document.getElementById('location-input').value || savedLocation;
+            const errorElement = document.getElementById('error-message');
+            const warningElement = document.getElementById('warning-message');
+            errorElement.style.display = 'none';
+            errorElement.textContent = '';
+            warningElement.style.display = 'none';
+            warningElement.textContent = '';
+
+            try {
+                // Save location to localStorage
+                localStorage.setItem('lastCity', location);
+
+                // Update weather title with city name
+                document.getElementById('weather-title').textContent = `Current Weather in ${location}`;
+
+                // Get coordinates from location
+                const geoRes = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${location}&limit=1&appid=${API_KEY}`);
+                if (!geoRes.ok) throw new Error('Failed to fetch location data');
+                const geoData = await geoRes.json();
+                if (!geoData[0]) throw new Error('Location not found');
+                const { lat, lon } = geoData[0];
+
+                // Get current weather
+                const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=${units}&appid=${API_KEY}`);
+                if (!weatherRes.ok) throw new Error('Failed to fetch weather data');
+                const weatherData = await weatherRes.json();
+
+                // Get 5-day forecast
+                const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=${units}&appid=${API_KEY}`);
+                if (!forecastRes.ok) throw new Error('Failed to fetch forecast data');
+                const forecastData = await forecastRes.json();
+
+                // Check for severe weather alerts
+                const alerts = checkWeatherAlerts(weatherData);
+                if (alerts.length > 0) {
+                    warningElement.textContent = alerts.join(' ');
+                    warningElement.style.display = 'block';
+                }
+
+                // Approximate pressure trend
+                const currentPressure = weatherData.main.pressure;
+                const nextPressure = forecastData.list[0].main.pressure;
+                const pressureTrend = (currentPressure - nextPressure) / 3;
+
+                displayCurrentWeather(weatherData);
+                displayAstronomicalData(lat, lon);
+                displayFishingSuccess(weatherData, lat, lon, pressureTrend);
+                displayForecastChart(forecastData);
+                displayForecastTable(forecastData, lat, lon);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                errorElement.textContent = error.message === 'Location not found' 
+                    ? `Location "${location}" not found. Please try another city.` 
+                    : 'Failed to fetch data. Please try again later.';
+                errorElement.style.display = 'block';
+            }
+        }
+
+        function checkWeatherAlerts(weatherData) {
+            const alerts = [];
+            const windSpeed = weatherData.wind.speed;
+            const windThreshold = units === 'metric' ? 10 : 22.37; // 10 m/s ≈ 22.37 mph
+            const weatherMain = weatherData.weather[0].main.toLowerCase();
+            const weatherDescription = weatherData.weather[0].description.toLowerCase();
+            const rain = weatherData.rain ? weatherData.rain['1h'] || 0 : 0;
+            const rainThreshold = units === 'metric' ? 5 : 0.2; // 5 mm/h ≈ 0.2 in/h
+
+            if (windSpeed > windThreshold) {
+                alerts.push(`Warning: High winds (${windSpeed.toFixed(2)} ${units === 'metric' ? 'm/s' : 'mph'}) may make fishing unsafe.`);
+            }
+            if (weatherMain.includes('thunderstorm') || weatherMain.includes('storm')) {
+                alerts.push('Warning: Thunderstorms detected, avoid fishing for safety.');
+            }
+            if (rain > rainThreshold && weatherDescription.includes('heavy')) {
+                alerts.push(`Warning: Heavy rain (${rain.toFixed(2)} ${units === 'metric' ? 'mm/h' : 'in/h'}) may affect fishing conditions.`);
+            }
+            return alerts;
+        }
+
+        function displayCurrentWeather(data) {
+            const tempUnit = units === 'metric' ? '°C' : '°F';
+            const windUnit = units === 'metric' ? 'm/s' : 'mph';
+            document.getElementById('temp').textContent = `${data.main.temp} ${tempUnit}`;
+            document.getElementById('description').textContent = data.weather[0].description;
+            document.getElementById('pressure').textContent = `${data.main.pressure} hPa`;
+            document.getElementById('wind-speed').innerHTML = `${data.wind.speed} ${windUnit} <span class="wind-arrow" style="transform: rotate(${data.wind.deg + 45}deg);"></span>`;
+        }
+
+        function displayAstronomicalData(lat, lon) {
+            const now = new Date();
+            const sunTimes = SunCalc.getTimes(now, lat, lon);
+            const moonIllum = SunCalc.getMoonIllumination(now);
+            const moonPhase = getMoonPhase(moonIllum.phase);
+
+            document.getElementById('sunrise').textContent = sunTimes.sunrise.toLocaleTimeString();
+            document.getElementById('sunset').textContent = sunTimes.sunset.toLocaleTimeString();
+            document.getElementById('moon-phase').textContent = moonPhase;
+        }
+
+        function getMoonPhase(phase) {
+            if (phase < 0.0625) return 'New Moon';
+            if (phase < 0.1875) return 'Waxing Crescent';
+            if (phase < 0.3125) return 'First Quarter';
+            if (phase < 0.4375) return 'Waxing Gibbous';
+            if (phase < 0.5625) return 'Full Moon';
+            if (phase < 0.6875) return 'Waning Gibbous';
+            if (phase < 0.8125) return 'Last Quarter';
+            if (phase < 0.9375) return 'Waning Crescent';
+            return 'New Moon';
+        }
+
+        function calculateFishingSuccess(data, lat, lon, date) {
+            const refTime = new Date(date);
+            refTime.setHours(12, 0, 0, 0); // Use midday for consistency
+            const moonTimes = SunCalc.getMoonTimes(refTime, lat, lon);
+
+            let score = 0;
+
+            // Solunar periods
+            const transit = moonTimes.transit || refTime;
+            const isMajor = isInSolunarPeriod(refTime, transit, 2) || isInSolunarPeriod(refTime, addHours(transit, 12), 2);
+            const isMinor = isInSolunarPeriod(refTime, moonTimes.rise, 1) || isInSolunarPeriod(refTime, moonTimes.set, 1);
+            score += isMajor ? 1 : (isMinor ? 0.5 : -0.5);
+
+            // Pressure
+            const pressure = data.pressure;
+            const pressureTrend = data.pressureTrend || 0; // Simplified, no trend for forecast
+            score += (pressure > 1013 && pressure < 1030 && Math.abs(pressureTrend) < 2) ? 1 : (pressureTrend > 2 ? -1 : 0);
+
+            // Wind
+            const windSpeed = data.windSpeed;
+            const windDeg = data.windDeg;
+            const isGoodDirection = windDeg >= 180 && windDeg <= 270;
+            score += (windSpeed < 3) ? 1 : (windSpeed > 7 ? -1 : 0);
+            score += isGoodDirection ? 0.5 : -0.5;
+
+            // Clouds
+            const clouds = data.clouds;
+            score += (clouds >= 20 && clouds <= 50) ? 1 : (clouds < 20 || clouds > 80 ? -0.5 : 0);
+
+            // Precipitation
+            const rain = data.rain || 0;
+            score += (rain > 0 && rain < 2) ? 0.5 : (rain > 5 ? -1 : 0);
+
+            // Moon phase
+            const moonIllum = SunCalc.getMoonIllumination(refTime);
+            const phase = moonIllum.phase;
+            score += (phase < 0.1 || (phase > 0.4 && phase < 0.6)) ? 1 : ((phase > 0.2 && phase < 0.3) || (phase > 0.7 && phase < 0.8)) ? -0.5 : 0;
+
+            // Time of day (favor dawn/dusk, approximate for midday)
+            const sunTimes = SunCalc.getTimes(refTime, lat, lon);
+            const isNearSunrise = isInSolunarPeriod(refTime, sunTimes.sunrise, 1);
+            const isNearSunset = isInSolunarPeriod(refTime, sunTimes.sunset, 1);
+            score += (isNearSunrise || isNearSunset) ? 1 : 0;
+
+            return getSuccessLevel(score);
+        }
+
+        function displayFishingSuccess(weatherData, lat, lon, pressureTrend) {
+            const now = new Date();
+            const moonTimes = SunCalc.getMoonTimes(now, lat, lon);
+
+            // Scoring system
+            let score = 0;
+            const tips = [];
+
+            // Solunar periods
+            const transit = moonTimes.transit || new Date(now.getTime());
+            const isMajor = isInSolunarPeriod(now, transit, 2) || isInSolunarPeriod(now, addHours(transit, 12), 2);
+            const isMinor = isInSolunarPeriod(now, moonTimes.rise, 1) || isInSolunarPeriod(now, moonTimes.set, 1);
+            score += isMajor ? 1 : (isMinor ? 0.5 : -0.5);
+            if (isMajor) tips.push('Fish during major solunar periods (moon overhead/underfoot) for best activity.');
+            else if (isMinor) tips.push('Minor solunar periods (moonrise/moonset) are good for fishing.');
+
+            // Pressure
+            const pressure = weatherData.main.pressure;
+            score += (pressure > 1013 && pressure < 1030 && Math.abs(pressureTrend) < 2) ? 1 : (pressureTrend > 2 ? -1 : 0);
+            if (pressure > 1013 && pressure < 1030) tips.push('Stable pressure is ideal; use deep water baits.');
+            else if (pressureTrend > 2) tips.push('Falling pressure may reduce bites; try slower presentations.');
+
+            // Wind
+            const windSpeed = weatherData.wind.speed;
+            const windDeg = weatherData.wind.deg;
+            const isGoodDirection = windDeg >= 180 && windDeg <= 270;
+            score += (windSpeed < 3) ? 1 : (windSpeed > 7 ? -1 : 0);
+            score += isGoodDirection ? 0.5 : -0.5;
+            if (windSpeed < 3) tips.push('Calm winds are perfect; try topwater lures.');
+            else if (windSpeed > 7) tips.push('High winds; fish in sheltered areas or use heavier lures.');
+            if (isGoodDirection) tips.push('South/west winds are favorable; focus on windward shores.');
+
+            // Clouds
+            const clouds = weatherData.clouds.all;
+            score += (clouds >= 20 && clouds <= 50) ? 1 : (clouds < 20 || clouds > 80 ? -0.5 : 0);
+            if (clouds >= 20 && clouds <= 50) tips.push('Moderate cloud cover is ideal; use natural-colored lures.');
+
+            // Precipitation
+            const rain = weatherData.rain ? weatherData.rain['1h'] || 0 : 0;
+            score += (rain > 0 && rain < 2) ? 0.5 : (rain > 5 ? -1 : 0);
+            if (rain > 0 && rain < 2) tips.push('Light rain can trigger bites; use noisy lures.');
+
+            // Moon phase
+            const moonIllum = SunCalc.getMoonIllumination(now);
+            const phase = moonIllum.phase;
+            score += (phase < 0.1 || (phase > 0.4 && phase < 0.6)) ? 1 : ((phase > 0.2 && phase < 0.3) || (phase > 0.7 && phase < 0.8)) ? -0.5 : 0;
+            if (phase < 0.1 || (phase > 0.4 && phase < 0.6)) tips.push('Full or new moon is great; try night fishing with bright lures.');
+
+            // Time of day
+            const sunTimes = SunCalc.getTimes(now, lat, lon);
+            const isNearSunrise = isInSolunarPeriod(now, sunTimes.sunrise, 1);
+            const isNearSunset = isInSolunarPeriod(now, sunTimes.sunset, 1);
+            score += (isNearSunrise || isNearSunset) ? 1 : 0;
+            if (isNearSunrise || isNearSunset) tips.push('Fish near dawn or dusk for peak activity.');
+
+            // Display
+            const level = getSuccessLevel(score);
+            const description = getSuccessDescription(level, score);
+
+            const levelElem = document.getElementById('success-level');
+            levelElem.textContent = level;
+            levelElem.className = `success-level ${level.toLowerCase()}`;
+            document.getElementById('success-description').textContent = description;
+
+            // Display fishing tips
+            const tipsElement = document.getElementById('fishing-tips');
+            tipsElement.innerHTML = '';
+            tips.forEach(tip => {
+                const li = document.createElement('li');
+                li.textContent = tip;
+                tipsElement.appendChild(li);
+            });
+        }
+
+        function isInSolunarPeriod(now, centerTime, hours) {
+            if (!centerTime || !(centerTime instanceof Date) || isNaN(centerTime.getTime())) return false;
+            const start = addHours(centerTime, -hours / 2);
+            const end = addHours(centerTime, hours / 2);
+            return now >= start && now <= end;
+        }
+
+        function addHours(date, hours) {
+            if (!date || !(date instanceof Date) || isNaN(date.getTime())) return new Date();
+            return new Date(date.getTime() + hours * 60 * 60 * 1000);
+        }
+
+        function getSuccessLevel(score) {
+            if (score > 4) return 'Excellent';
+            if (score > 2) return 'Good';
+            if (score > 0) return 'Fair';
+            if (score > -2) return 'Poor';
+            return 'None';
+        }
+
+        function getSuccessDescription(level, score) {
+            return `Based on combined factors (score: ${score.toFixed(1)}). Factors include solunar periods, stable pressure, calm winds from south/west, moderate clouds, light rain, favorable moon phase, and time near dawn/dusk. Higher scores indicate better conditions for fish biting.`;
+        }
+
+        function displayForecastChart(forecastData) {
+            const dailyData = aggregateDailyForecast(forecastData.list);
+            const labels = dailyData.map(d => new Date(d.dt * 1000).toLocaleDateString());
+            const temps = dailyData.map(d => d.temp);
+            const pressures = dailyData.map(d => d.pressure);
+
+            const ctx = document.getElementById('weather-chart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: `Temperature (${units === 'metric' ? '°C' : '°F'})`,
+                            data: temps,
+                            borderColor: '#ff6384',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            fill: false,
+                            yAxisID: 'temp'
+                        },
+                        {
+                            label: 'Pressure (hPa)',
+                            data: pressures,
+                            borderColor: '#36a2eb',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            fill: false,
+                            yAxisID: 'pressure'
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        temp: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: `Temperature (${units === 'metric' ? '°C' : '°F'})`,
+                                color: '#e0e0e0'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#e0e0e0'
+                            }
+                        },
+                        pressure: {
+                            type: 'linear',
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Pressure (hPa)',
+                                color: '#e0e0e0'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#e0e0e0'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#e0e0e0'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e0e0'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function aggregateDailyForecast(list) {
+            const daily = {};
+            list.forEach(item => {
+                const date = new Date(item.dt * 1000).toDateString();
+                if (!daily[date]) daily[date] = { temp: [], pressure: [], windSpeed: [], windDeg: [], clouds: [], rain: [], description: [], dt: item.dt };
+                daily[date].temp.push(item.main.temp);
+                daily[date].pressure.push(item.main.pressure);
+                daily[date].windSpeed.push(item.wind.speed);
+                daily[date].windDeg.push(item.wind.deg);
+                daily[date].clouds.push(item.clouds.all);
+                daily[date].rain.push(item.rain ? item.rain['3h'] || 0 : 0);
+                daily[date].description.push(item.weather[0].description);
+            });
+            return Object.values(daily).slice(0, 5).map(d => ({
+                dt: d.dt,
+                temp: d.temp.reduce((a, b) => a + b) / d.temp.length,
+                pressure: d.pressure.reduce((a, b) => a + b) / d.pressure.length,
+                windSpeed: d.windSpeed.reduce((a, b) => a + b) / d.windSpeed.length,
+                windDeg: d.windDeg.reduce((a, b) => a + b) / d.windDeg.length,
+                clouds: d.clouds.reduce((a, b) => a + b) / d.clouds.length,
+                rain: d.rain.reduce((a, b) => a + b) / d.rain.length,
+                description: d.description[Math.floor(d.description.length / 2)] // Pick middle description
+            }));
+        }
+
+        function displayForecastTable(forecastData, lat, lon) {
+            const dailyData = aggregateDailyForecast(forecastData.list);
+            const tableBody = document.querySelector('#forecast-table tbody');
+            const tempUnit = units === 'metric' ? '°C' : '°F';
+            const windUnit = units === 'metric' ? 'm/s' : 'mph';
+            tableBody.innerHTML = '';
+
+            dailyData.forEach(day => {
+                const date = new Date(day.dt * 1000);
+                const successLevel = calculateFishingSuccess(day, lat, lon, date);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${date.getMonth() + 1}/${date.getDate()}</td>
+                    <td>${day.temp.toFixed(1)} ${tempUnit}</td>
+                    <td>${day.description}</td>
+                    <td>${day.pressure.toFixed(0)} hPa</td>
+                    <td>${day.windSpeed.toFixed(1)} ${windUnit} <span class="wind-arrow" style="transform: rotate(${day.windDeg + 45}deg);"></span></td>
+                    <td><span class="success-level ${successLevel.toLowerCase()}">${successLevel}</span></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Initial load with saved or default location
+        updateFavoritesDropdown();
+        fetchData(null, savedLocation);
+    </script>
+</body>
+</html>

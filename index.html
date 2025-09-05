@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fishing Weather Widget</title>
     <style>
-        /* Styles adapted for Notion-like design with light and dark theme support */
         :root {
             --bg-color: #f6f6f6;
             --text-color: #37352f;
@@ -24,7 +23,6 @@
             --warning-color: #ff9800;
         }
 
-        /* Dark theme */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #2f2f2f;
@@ -96,7 +94,6 @@
             color: var(--toggle-text);
             border: 1px solid var(--border-color);
             border-radius: 4px;
-            margin-top: 4px;
             margin-left: 8px;
         }
         .toggle-button.active {
@@ -152,16 +149,21 @@
             margin-bottom: 16px;
         }
         #favorite-locations {
-            width: calc(100% - 80px);
+            width: 100%;
             padding: 8px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 14px;
             background-color: var(--bg-color);
             color: var(--text-color);
+            margin-bottom: 8px;
         }
-        #remove-favorite-btn {
-            margin-left: 8px;
+        .favorites-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        #remove-favorite-btn, #add-favorite-btn {
+            flex: 1;
         }
         .fishing-tips {
             font-size: 14px;
@@ -207,6 +209,7 @@
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.3/luxon.min.js"></script>
 </head>
 <body>
     <div class="error-message" id="error-message"></div>
@@ -218,11 +221,13 @@
     </div>
     <div class="section" id="favorites">
         <h2>Favorite Locations</h2>
-        <select id="favorite-locations" onchange="if(this.value) fetchData(null, this.value)">
+        <select id="favorite-locations" onchange="selectFavorite(this.value)">
             <option value="">Select a favorite location</option>
         </select>
-        <button id="add-favorite-btn" class="toggle-button">Add Favorite</button>
-        <button id="remove-favorite-btn" class="toggle-button">Remove Selected</button>
+        <div class="favorites-buttons">
+            <button id="remove-favorite-btn" class="toggle-button">Remove Selected</button>
+            <button id="add-favorite-btn" class="toggle-button">Add Favorite</button>
+        </div>
     </div>
     <div class="section" id="current-weather">
         <h2 id="weather-title">Current Weather</h2>
@@ -265,22 +270,19 @@
     </div>
 
     <script>
-        const API_KEY = '{{secrets.OPENWEATHER_API_KEY}}'; // Provided OpenWeatherMap API key
-        let units = 'metric'; // Default to Celsius and m/s
+        const API_KEY = '{{secrets.OPENWEATHER_API_KEY}}';
+        const { DateTime } = luxon;
+        let units = 'metric';
         let chart;
 
-        // Load saved city and favorites from localStorage
         const savedLocation = localStorage.getItem('lastCity') || 'New York';
         let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
         document.getElementById('location-input').value = savedLocation;
 
-        // Add event listeners
         document.getElementById('search-btn').addEventListener('click', fetchData);
         document.getElementById('unit-toggle').addEventListener('click', toggleUnits);
         document.getElementById('location-input').addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                fetchData(event);
-            }
+            if (event.key === 'Enter') fetchData(event);
         });
         document.getElementById('add-favorite-btn').addEventListener('click', () => {
             const location = document.getElementById('location-input').value.trim();
@@ -289,7 +291,7 @@
                 favorites.push(location);
                 localStorage.setItem('favorites', JSON.stringify(favorites));
                 updateFavoritesDropdown();
-                fetchData(null, location);
+                selectFavorite(location); // Update input and fetch data
                 errorElement.style.display = 'none';
             } else if (favorites.includes(location)) {
                 errorElement.textContent = `"${location}" is already in favorites.`;
@@ -305,8 +307,11 @@
                 favorites = favorites.filter(fav => fav !== selected);
                 localStorage.setItem('favorites', JSON.stringify(favorites));
                 updateFavoritesDropdown();
-                if (selected === document.getElementById('location-input').value) {
-                    fetchData(null, savedLocation);
+                const currentInput = document.getElementById('location-input').value;
+                if (selected === currentInput) {
+                    const newLocation = favorites.length > 0 ? favorites[0] : savedLocation;
+                    document.getElementById('location-input').value = newLocation;
+                    fetchData(null, newLocation);
                 }
             }
         });
@@ -320,6 +325,14 @@
                 option.textContent = fav;
                 select.appendChild(option);
             });
+        }
+
+        function selectFavorite(location) {
+            if (location) {
+                document.getElementById('location-input').value = location;
+                localStorage.setItem('lastCity', location);
+                fetchData(null, location);
+            }
         }
 
         function toggleUnits() {
@@ -339,43 +352,39 @@
             warningElement.textContent = '';
 
             try {
-                // Save location to localStorage
                 localStorage.setItem('lastCity', location);
-
-                // Update weather title with city name
-                document.getElementById('weather-title').textContent = `Current Weather in ${location}`;
-
-                // Get coordinates from location
+                document.getElementById('location-input').value = location; // Ensure input reflects current location
                 const geoRes = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${location}&limit=1&appid=${API_KEY}`);
                 if (!geoRes.ok) throw new Error('Failed to fetch location data');
                 const geoData = await geoRes.json();
                 if (!geoData[0]) throw new Error('Location not found');
                 const { lat, lon } = geoData[0];
 
-                // Get current weather
                 const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=${units}&appid=${API_KEY}`);
                 if (!weatherRes.ok) throw new Error('Failed to fetch weather data');
                 const weatherData = await weatherRes.json();
 
-                // Get 5-day forecast
                 const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=${units}&appid=${API_KEY}`);
                 if (!forecastRes.ok) throw new Error('Failed to fetch forecast data');
                 const forecastData = await forecastRes.json();
 
-                // Check for severe weather alerts
+                const timezoneOffset = weatherData.timezone;
+                const offsetHours = timezoneOffset / 3600;
+                const offsetDisplay = offsetHours >= 0 ? `UTC+${offsetHours}` : `UTC${offsetHours}`;
+                document.getElementById('weather-title').textContent = `Current Weather in ${location} (${offsetDisplay})`;
+
                 const alerts = checkWeatherAlerts(weatherData);
                 if (alerts.length > 0) {
                     warningElement.textContent = alerts.join(' ');
                     warningElement.style.display = 'block';
                 }
 
-                // Approximate pressure trend
                 const currentPressure = weatherData.main.pressure;
                 const nextPressure = forecastData.list[0].main.pressure;
                 const pressureTrend = (currentPressure - nextPressure) / 3;
 
                 displayCurrentWeather(weatherData);
-                displayAstronomicalData(lat, lon);
+                displayAstronomicalData(lat, lon, timezoneOffset);
                 displayFishingSuccess(weatherData, lat, lon, pressureTrend);
                 displayForecastChart(forecastData);
                 displayForecastTable(forecastData, lat, lon);
@@ -391,11 +400,11 @@
         function checkWeatherAlerts(weatherData) {
             const alerts = [];
             const windSpeed = weatherData.wind.speed;
-            const windThreshold = units === 'metric' ? 10 : 22.37; // 10 m/s ≈ 22.37 mph
+            const windThreshold = units === 'metric' ? 10 : 22.37;
             const weatherMain = weatherData.weather[0].main.toLowerCase();
             const weatherDescription = weatherData.weather[0].description.toLowerCase();
             const rain = weatherData.rain ? weatherData.rain['1h'] || 0 : 0;
-            const rainThreshold = units === 'metric' ? 5 : 0.2; // 5 mm/h ≈ 0.2 in/h
+            const rainThreshold = units === 'metric' ? 5 : 0.2;
 
             if (windSpeed > windThreshold) {
                 alerts.push(`Warning: High winds (${windSpeed.toFixed(2)} ${units === 'metric' ? 'm/s' : 'mph'}) may make fishing unsafe.`);
@@ -418,14 +427,21 @@
             document.getElementById('wind-speed').innerHTML = `${data.wind.speed} ${windUnit} <span class="wind-arrow" style="transform: rotate(${data.wind.deg + 45}deg);"></span>`;
         }
 
-        function displayAstronomicalData(lat, lon) {
-            const now = new Date();
-            const sunTimes = SunCalc.getTimes(now, lat, lon);
-            const moonIllum = SunCalc.getMoonIllumination(now);
+        function displayAstronomicalData(lat, lon, timezoneOffset) {
+            const now = DateTime.now().toUTC();
+            const localMidnight = now.plus({ seconds: timezoneOffset }).startOf('day');
+            const utcDate = localMidnight.minus({ seconds: timezoneOffset }).toJSDate();
+            
+            const sunTimes = SunCalc.getTimes(utcDate, lat, lon);
+            const moonIllum = SunCalc.getMoonIllumination(utcDate);
             const moonPhase = getMoonPhase(moonIllum.phase);
 
-            document.getElementById('sunrise').textContent = sunTimes.sunrise.toLocaleTimeString();
-            document.getElementById('sunset').textContent = sunTimes.sunset.toLocaleTimeString();
+            const sunrise = DateTime.fromJSDate(sunTimes.sunrise, { zone: 'utc' }).plus({ seconds: timezoneOffset });
+            const sunset = DateTime.fromJSDate(sunTimes.sunset, { zone: 'utc' }).plus({ seconds: timezoneOffset });
+
+            const timeFormat = units === 'imperial' ? 'h:mm:ss a' : 'HH:mm:ss';
+            document.getElementById('sunrise').textContent = sunrise.toFormat(timeFormat);
+            document.getElementById('sunset').textContent = sunset.toFormat(timeFormat);
             document.getElementById('moon-phase').textContent = moonPhase;
         }
 
@@ -441,109 +457,140 @@
             return 'New Moon';
         }
 
-        function calculateFishingSuccess(data, lat, lon, date) {
-            const refTime = new Date(date);
-            refTime.setHours(12, 0, 0, 0); // Use midday for consistency
-            const moonTimes = SunCalc.getMoonTimes(refTime, lat, lon);
+        function calculateFishingSuccess(data, lat, lon, date, timezoneOffset) {
+            const refTime = DateTime.fromJSDate(new Date(date)).set({ hour: 12, minute: 0, second: 0, millisecond: 0 });
+            const utcRefTime = refTime.minus({ seconds: timezoneOffset || 0 });
+            const moonTimes = SunCalc.getMoonTimes(utcRefTime.toJSDate(), lat, lon);
 
             let score = 0;
+            const scoreComponents = [];
 
-            // Solunar periods
-            const transit = moonTimes.transit || refTime;
-            const isMajor = isInSolunarPeriod(refTime, transit, 2) || isInSolunarPeriod(refTime, addHours(transit, 12), 2);
-            const isMinor = isInSolunarPeriod(refTime, moonTimes.rise, 1) || isInSolunarPeriod(refTime, moonTimes.set, 1);
-            score += isMajor ? 1 : (isMinor ? 0.5 : -0.5);
+            const transit = moonTimes.transit ? DateTime.fromJSDate(moonTimes.transit, { zone: 'utc' }) : refTime;
+            const isMajor = isInSolunarPeriod(refTime, transit, 2) || isInSolunarPeriod(refTime, transit.plus({ hours: 12 }), 2);
+            const isMinor = isInSolunarPeriod(refTime, moonTimes.rise ? DateTime.fromJSDate(moonTimes.rise, { zone: 'utc' }) : null, 1) || 
+                           isInSolunarPeriod(refTime, moonTimes.set ? DateTime.fromJSDate(moonTimes.set, { zone: 'utc' }) : null, 1);
+            const solunarScore = isMajor ? 1 : (isMinor ? 0.5 : -0.5);
+            score += solunarScore;
+            scoreComponents.push(`Solunar: ${solunarScore}`);
 
-            // Pressure
             const pressure = data.pressure;
-            const pressureTrend = data.pressureTrend || 0; // Simplified, no trend for forecast
-            score += (pressure > 1013 && pressure < 1030 && Math.abs(pressureTrend) < 2) ? 1 : (pressureTrend > 2 ? -1 : 0);
+            const pressureTrend = data.pressureTrend || 0;
+            const pressureScore = (pressure > 1013 && pressure < 1030 && Math.abs(pressureTrend) < 2) ? 1 : (pressureTrend > 2 ? -1 : 0);
+            score += pressureScore;
+            scoreComponents.push(`Pressure: ${pressureScore}`);
 
-            // Wind
             const windSpeed = data.windSpeed;
             const windDeg = data.windDeg;
             const isGoodDirection = windDeg >= 180 && windDeg <= 270;
-            score += (windSpeed < 3) ? 1 : (windSpeed > 7 ? -1 : 0);
-            score += isGoodDirection ? 0.5 : -0.5;
+            const windLowThreshold = units === 'metric' ? 3 : 6.71;
+            const windHighThreshold = units === 'metric' ? 7 : 15.66;
+            const windSpeedScore = (windSpeed < windLowThreshold) ? 1 : (windSpeed > windHighThreshold ? -1 : 0);
+            score += windSpeedScore;
+            scoreComponents.push(`Wind Speed: ${windSpeedScore} (${windSpeed} ${units === 'metric' ? 'm/s' : 'mph'})`);
 
-            // Clouds
+            const windDirectionScore = isGoodDirection ? 0.5 : -0.5;
+            score += windDirectionScore;
+            scoreComponents.push(`Wind Direction: ${windDirectionScore}`);
+
             const clouds = data.clouds;
-            score += (clouds >= 20 && clouds <= 50) ? 1 : (clouds < 20 || clouds > 80 ? -0.5 : 0);
+            const cloudScore = (clouds >= 20 && clouds <= 50) ? 1 : (clouds < 20 || clouds > 80 ? -0.5 : 0);
+            score += cloudScore;
+            scoreComponents.push(`Clouds: ${cloudScore}`);
 
-            // Precipitation
             const rain = data.rain || 0;
-            score += (rain > 0 && rain < 2) ? 0.5 : (rain > 5 ? -1 : 0);
+            const rainScore = (rain > 0 && rain < 2) ? 0.5 : (rain > 5 ? -1 : 0);
+            score += rainScore;
+            scoreComponents.push(`Rain: ${rainScore}`);
 
-            // Moon phase
-            const moonIllum = SunCalc.getMoonIllumination(refTime);
+            const moonIllum = SunCalc.getMoonIllumination(utcRefTime.toJSDate());
             const phase = moonIllum.phase;
-            score += (phase < 0.1 || (phase > 0.4 && phase < 0.6)) ? 1 : ((phase > 0.2 && phase < 0.3) || (phase > 0.7 && phase < 0.8)) ? -0.5 : 0;
+            const moonScore = (phase < 0.1 || (phase > 0.4 && phase < 0.6)) ? 1 : ((phase > 0.2 && phase < 0.3) || (phase > 0.7 && phase < 0.8)) ? -0.5 : 0;
+            score += moonScore;
+            scoreComponents.push(`Moon Phase: ${moonScore}`);
 
-            // Time of day (favor dawn/dusk, approximate for midday)
-            const sunTimes = SunCalc.getTimes(refTime, lat, lon);
-            const isNearSunrise = isInSolunarPeriod(refTime, sunTimes.sunrise, 1);
-            const isNearSunset = isInSolunarPeriod(refTime, sunTimes.sunset, 1);
-            score += (isNearSunrise || isNearSunset) ? 1 : 0;
+            const sunTimes = SunCalc.getTimes(utcRefTime.toJSDate(), lat, lon);
+            const isNearSunrise = isInSolunarPeriod(refTime, DateTime.fromJSDate(sunTimes.sunrise, { zone: 'utc' }), 1);
+            const isNearSunset = isInSolunarPeriod(refTime, DateTime.fromJSDate(sunTimes.sunset, { zone: 'utc' }), 1);
+            const sunScore = (isNearSunrise || isNearSunset) ? 1 : 0;
+            score += sunScore;
+            scoreComponents.push(`Sunrise/Sunset: ${sunScore}`);
+
+            console.log(`Fishing Success Score Components (${units}):`, scoreComponents, `Total: ${score}`);
 
             return getSuccessLevel(score);
         }
 
         function displayFishingSuccess(weatherData, lat, lon, pressureTrend) {
-            const now = new Date();
-            const moonTimes = SunCalc.getMoonTimes(now, lat, lon);
+            const now = DateTime.now().toUTC().plus({ seconds: weatherData.timezone });
+            const utcNow = now.minus({ seconds: weatherData.timezone });
+            const moonTimes = SunCalc.getMoonTimes(utcNow.toJSDate(), lat, lon);
 
-            // Scoring system
             let score = 0;
             const tips = [];
+            const scoreComponents = [];
 
-            // Solunar periods
-            const transit = moonTimes.transit || new Date(now.getTime());
-            const isMajor = isInSolunarPeriod(now, transit, 2) || isInSolunarPeriod(now, addHours(transit, 12), 2);
-            const isMinor = isInSolunarPeriod(now, moonTimes.rise, 1) || isInSolunarPeriod(now, moonTimes.set, 1);
-            score += isMajor ? 1 : (isMinor ? 0.5 : -0.5);
+            const transit = moonTimes.transit ? DateTime.fromJSDate(moonTimes.transit, { zone: 'utc' }) : now;
+            const isMajor = isInSolunarPeriod(now, transit, 2) || isInSolunarPeriod(now, transit.plus({ hours: 12 }), 2);
+            const isMinor = isInSolunarPeriod(now, moonTimes.rise ? DateTime.fromJSDate(moonTimes.rise, { zone: 'utc' }) : null, 1) || 
+                           isInSolunarPeriod(now, moonTimes.set ? DateTime.fromJSDate(moonTimes.set, { zone: 'utc' }) : null, 1);
+            const solunarScore = isMajor ? 1 : (isMinor ? 0.5 : -0.5);
+            score += solunarScore;
+            scoreComponents.push(`Solunar: ${solunarScore}`);
             if (isMajor) tips.push('Fish during major solunar periods (moon overhead/underfoot) for best activity.');
             else if (isMinor) tips.push('Minor solunar periods (moonrise/moonset) are good for fishing.');
 
-            // Pressure
             const pressure = weatherData.main.pressure;
-            score += (pressure > 1013 && pressure < 1030 && Math.abs(pressureTrend) < 2) ? 1 : (pressureTrend > 2 ? -1 : 0);
+            const pressureScore = (pressure > 1013 && pressure < 1030 && Math.abs(pressureTrend) < 2) ? 1 : (pressureTrend > 2 ? -1 : 0);
+            score += pressureScore;
+            scoreComponents.push(`Pressure: ${pressureScore}`);
             if (pressure > 1013 && pressure < 1030) tips.push('Stable pressure is ideal; use deep water baits.');
             else if (pressureTrend > 2) tips.push('Falling pressure may reduce bites; try slower presentations.');
 
-            // Wind
             const windSpeed = weatherData.wind.speed;
             const windDeg = weatherData.wind.deg;
             const isGoodDirection = windDeg >= 180 && windDeg <= 270;
-            score += (windSpeed < 3) ? 1 : (windSpeed > 7 ? -1 : 0);
-            score += isGoodDirection ? 0.5 : -0.5;
-            if (windSpeed < 3) tips.push('Calm winds are perfect; try topwater lures.');
-            else if (windSpeed > 7) tips.push('High winds; fish in sheltered areas or use heavier lures.');
+            const windLowThreshold = units === 'metric' ? 3 : 6.71;
+            const windHighThreshold = units === 'metric' ? 7 : 15.66;
+            const windSpeedScore = (windSpeed < windLowThreshold) ? 1 : (windSpeed > windHighThreshold ? -1 : 0);
+            score += windSpeedScore;
+            scoreComponents.push(`Wind Speed: ${windSpeedScore} (${windSpeed} ${units === 'metric' ? 'm/s' : 'mph'})`);
+            if (windSpeed < windLowThreshold) tips.push('Calm winds are perfect; try topwater lures.');
+            else if (windSpeed > windHighThreshold) tips.push('High winds; fish in sheltered areas or use heavier lures.');
+
+            const windDirectionScore = isGoodDirection ? 0.5 : -0.5;
+            score += windDirectionScore;
+            scoreComponents.push(`Wind Direction: ${windDirectionScore}`);
             if (isGoodDirection) tips.push('South/west winds are favorable; focus on windward shores.');
 
-            // Clouds
             const clouds = weatherData.clouds.all;
-            score += (clouds >= 20 && clouds <= 50) ? 1 : (clouds < 20 || clouds > 80 ? -0.5 : 0);
+            const cloudScore = (clouds >= 20 && clouds <= 50) ? 1 : (clouds < 20 || clouds > 80 ? -0.5 : 0);
+            score += cloudScore;
+            scoreComponents.push(`Clouds: ${cloudScore}`);
             if (clouds >= 20 && clouds <= 50) tips.push('Moderate cloud cover is ideal; use natural-colored lures.');
 
-            // Precipitation
             const rain = weatherData.rain ? weatherData.rain['1h'] || 0 : 0;
-            score += (rain > 0 && rain < 2) ? 0.5 : (rain > 5 ? -1 : 0);
+            const rainScore = (rain > 0 && rain < 2) ? 0.5 : (rain > 5 ? -1 : 0);
+            score += rainScore;
+            scoreComponents.push(`Rain: ${rainScore}`);
             if (rain > 0 && rain < 2) tips.push('Light rain can trigger bites; use noisy lures.');
 
-            // Moon phase
-            const moonIllum = SunCalc.getMoonIllumination(now);
+            const moonIllum = SunCalc.getMoonIllumination(utcNow.toJSDate());
             const phase = moonIllum.phase;
-            score += (phase < 0.1 || (phase > 0.4 && phase < 0.6)) ? 1 : ((phase > 0.2 && phase < 0.3) || (phase > 0.7 && phase < 0.8)) ? -0.5 : 0;
+            const moonScore = (phase < 0.1 || (phase > 0.4 && phase < 0.6)) ? 1 : ((phase > 0.2 && phase < 0.3) || (phase > 0.7 && phase < 0.8)) ? -0.5 : 0;
+            score += moonScore;
+            scoreComponents.push(`Moon Phase: ${moonScore}`);
             if (phase < 0.1 || (phase > 0.4 && phase < 0.6)) tips.push('Full or new moon is great; try night fishing with bright lures.');
 
-            // Time of day
-            const sunTimes = SunCalc.getTimes(now, lat, lon);
-            const isNearSunrise = isInSolunarPeriod(now, sunTimes.sunrise, 1);
-            const isNearSunset = isInSolunarPeriod(now, sunTimes.sunset, 1);
-            score += (isNearSunrise || isNearSunset) ? 1 : 0;
+            const sunTimes = SunCalc.getTimes(utcNow.toJSDate(), lat, lon);
+            const isNearSunrise = isInSolunarPeriod(now, DateTime.fromJSDate(sunTimes.sunrise, { zone: 'utc' }), 1);
+            const isNearSunset = isInSolunarPeriod(now, DateTime.fromJSDate(sunTimes.sunset, { zone: 'utc' }), 1);
+            const sunScore = (isNearSunrise || isNearSunset) ? 1 : 0;
+            score += sunScore;
+            scoreComponents.push(`Sunrise/Sunset: ${sunScore}`);
             if (isNearSunrise || isNearSunset) tips.push('Fish near dawn or dusk for peak activity.');
 
-            // Display
+            console.log(`Current Fishing Success Score Components (${units}):`, scoreComponents, `Total: ${score}`);
+
             const level = getSuccessLevel(score);
             const description = getSuccessDescription(level, score);
 
@@ -552,7 +599,6 @@
             levelElem.className = `success-level ${level.toLowerCase()}`;
             document.getElementById('success-description').textContent = description;
 
-            // Display fishing tips
             const tipsElement = document.getElementById('fishing-tips');
             tipsElement.innerHTML = '';
             tips.forEach(tip => {
@@ -563,15 +609,14 @@
         }
 
         function isInSolunarPeriod(now, centerTime, hours) {
-            if (!centerTime || !(centerTime instanceof Date) || isNaN(centerTime.getTime())) return false;
-            const start = addHours(centerTime, -hours / 2);
-            const end = addHours(centerTime, hours / 2);
+            if (!centerTime || !centerTime.isValid) return false;
+            const start = centerTime.minus({ hours: hours / 2 });
+            const end = centerTime.plus({ hours: hours / 2 });
             return now >= start && now <= end;
         }
 
         function addHours(date, hours) {
-            if (!date || !(date instanceof Date) || isNaN(date.getTime())) return new Date();
-            return new Date(date.getTime() + hours * 60 * 60 * 1000);
+            return DateTime.fromJSDate(date).plus({ hours }).toJSDate();
         }
 
         function getSuccessLevel(score) {
@@ -627,12 +672,8 @@
                                 text: `Temperature (${units === 'metric' ? '°C' : '°F'})`,
                                 color: '#e0e0e0'
                             },
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: '#e0e0e0'
-                            }
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#e0e0e0' }
                         },
                         pressure: {
                             type: 'linear',
@@ -642,28 +683,16 @@
                                 text: 'Pressure (hPa)',
                                 color: '#e0e0e0'
                             },
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: '#e0e0e0'
-                            }
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#e0e0e0' }
                         },
                         x: {
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: '#e0e0e0'
-                            }
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#e0e0e0' }
                         }
                     },
                     plugins: {
-                        legend: {
-                            labels: {
-                                color: '#e0e0e0'
-                            }
-                        }
+                        legend: { labels: { color: '#e0e0e0' } }
                     }
                 }
             });
@@ -690,7 +719,7 @@
                 windDeg: d.windDeg.reduce((a, b) => a + b) / d.windDeg.length,
                 clouds: d.clouds.reduce((a, b) => a + b) / d.clouds.length,
                 rain: d.rain.reduce((a, b) => a + b) / d.rain.length,
-                description: d.description[Math.floor(d.description.length / 2)] // Pick middle description
+                description: d.description[Math.floor(d.description.length / 2)]
             }));
         }
 
@@ -703,7 +732,7 @@
 
             dailyData.forEach(day => {
                 const date = new Date(day.dt * 1000);
-                const successLevel = calculateFishingSuccess(day, lat, lon, date);
+                const successLevel = calculateFishingSuccess({ ...day, timezoneOffset: forecastData.city.timezone }, lat, lon, date, forecastData.city.timezone);
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${date.getMonth() + 1}/${date.getDate()}</td>
@@ -717,7 +746,6 @@
             });
         }
 
-        // Initial load with saved or default location
         updateFavoritesDropdown();
         fetchData(null, savedLocation);
     </script>
